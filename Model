@@ -1,0 +1,404 @@
+package com.hackerrank.github.model;
+
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
+
+import com.hackerrank.github.utils.DBConstants;
+
+@Entity
+@Table(name=DBConstants.DBTable.TABLE_ACTOR, uniqueConstraints=@UniqueConstraint(
+		columnNames="id"))
+public class Actor {
+	@Id
+	@Column(name="id",unique=true)
+    private Long id;
+	
+	@Column(name="login_id")
+    private String login;
+	
+	@Column(name="avatar_url")
+    private String avatar;
+
+	@OneToMany(cascade=CascadeType.ALL, mappedBy="actor")
+	private List<Event> events;
+	
+    public Actor() {
+    }
+
+    public Actor(Long id, String login, String avatar) {
+        this.id = id;
+        this.login = login;
+        this.avatar = avatar;
+    }
+    
+    public Long getId() {
+        return id;
+    }
+    
+    public void setId(Long id) {
+        this.id = id;
+    }
+    
+    public String getLogin() {
+        return login;
+    }
+    
+    public void setLogin(String login) {
+        this.login = login;
+    }
+    
+    public String getAvatar() {
+        return avatar;
+    }
+    
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+	public List<Event> getEvents() {
+		return events;
+	}
+
+	public void setEvents(List<Event> events) {
+		this.events = events;
+	}
+}
+----------------------------------
+package com.hackerrank.github.model;
+
+import java.sql.Timestamp;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.Id;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
+import com.hackerrank.github.utils.DBConstants;
+
+@Entity
+@Table(name=DBConstants.DBTable.TABLE_EVENT, uniqueConstraints=
+					@UniqueConstraint(columnNames = "id"))
+public class Event {
+	@Id
+    private Long id;
+    private String type;
+    
+    @ManyToOne(cascade=CascadeType.ALL)
+    private Actor actor;
+    
+    @OneToOne(cascade=CascadeType.ALL)
+    private Repo repo;
+    
+    @Column(name="created_at")
+    private Timestamp createdAt;
+
+    public Event() {
+    }
+
+    public Event(Long id, String type, Actor actor, Repo repo, Timestamp createdAt) {
+        this.id = id;
+        this.type = type;
+        this.actor = actor;
+        this.repo = repo;
+        this.createdAt = createdAt;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Actor getActor() {
+        return actor;
+    }
+
+    public void setActor(Actor actor) {
+        this.actor = actor;
+    }
+
+    public Repo getRepo() {
+        return repo;
+    }
+
+    public void setRepo(Repo repo) {
+        this.repo = repo;
+    }
+
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+}
+-----------------------------------------------------
+package com.hackerrank.github.model;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
+
+import com.hackerrank.github.utils.DBConstants;
+
+@Entity
+@Table(name=DBConstants.DBTable.TABLE_REPO, uniqueConstraints= @UniqueConstraint(
+		columnNames= {"id"}))
+public class Repo {
+	@Id
+    private Long id;
+    private String name;
+    
+    @Column(name="avatar_url")
+    private String url;
+
+    public Repo() {
+    }
+
+    public Repo(Long id, String name, String url) {
+        this.id = id;
+        this.name = name;
+        this.url = url;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+}
+------------------------------------
+package com.hackerrank.github.entity;
+
+import com.hackerrank.github.utils.EventResponse;
+
+public class EventResult<T> {
+	EventResponse response;
+	T data;
+	String error;
+	
+	public EventResult() {
+		
+	}
+	
+	public EventResult(EventResponse response, T data, String error) {
+		this.response = response;
+		this.data = data;
+		this.error = error;
+	}
+	
+	public EventResult(EventResponse response, T data) {
+		this.response = response;
+		this.data = data;
+	}
+	
+	public EventResponse getResponse() {
+		return response;
+	}
+	public void setResponse(EventResponse response) {
+		this.response = response;
+	}
+	public T getData() {
+		return data;
+	}
+	public void setData(T data) {
+		this.data = data;
+	}
+	public String getError() {
+		return error;
+	}
+	public void setError(String error) {
+		this.error = error;
+	}
+}
+-----------------------package com.hackerrank.github.repository;
+
+import org.springframework.data.repository.CrudRepository;
+import com.hackerrank.github.model.Actor;
+
+public interface ActorRepository extends CrudRepository<Actor, Long> {
+}
+---------------------
+package com.hackerrank.github.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.repository.CrudRepository;
+import com.hackerrank.github.model.Event;
+
+public interface EventRepository extends CrudRepository<Event, Long> {	
+	public Optional<List<Event>> findByActorId(Long actorId);
+	public Optional<List<Event>> findByOrderByIdAsc();
+}
+----------------------------------
+package com.hackerrank.github.repository;
+
+import org.springframework.data.repository.CrudRepository;
+import com.hackerrank.github.model.Repo;
+
+public interface RepoRepository extends CrudRepository<Repo, Long>{
+}
+-----------------------------------
+package com.hackerrank.github;
+
+import java.nio.charset.Charset;
+import java.sql.Timestamp;
+import java.util.Random;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.model.Repo;
+import com.hackerrank.github.repository.EventRepository;
+
+@Component
+public class ApplicationBoot implements CommandLineRunner {
+	@Autowired
+	EventRepository eventRepository;
+
+	@Override
+	public void run(String... args) throws Exception {
+		Actor ac1 = getNewActor();
+		Actor ac2 = getNewActor();
+		
+		eventRepository.save(getNewEvent(getNewActor(), getNewRepo()));
+		eventRepository.save(getNewEvent(getNewActor(), getNewRepo()));
+		eventRepository.save(getNewEvent(getNewActor(), getNewRepo()));
+		
+		eventRepository.save(getNewEvent(ac1, getNewRepo()));
+		
+		Thread.sleep(2000);
+		eventRepository.save(getNewEvent(ac2, getNewRepo()));
+		eventRepository.save(getNewEvent(ac1, getNewRepo()));
+		
+		Thread.sleep(2000);
+		
+		eventRepository.save(getNewEvent(ac1, getNewRepo()));
+		eventRepository.save(getNewEvent(ac2, getNewRepo()));
+		eventRepository.save(getNewEvent(ac2, getNewRepo()));
+	}
+	
+	private Event getNewEvent(Actor actor, Repo repo) {
+		Random random = new Random();
+		long eventId = random.nextLong();
+		
+		return new Event(eventId, "event_type_" + eventId, actor, repo, new Timestamp(System.currentTimeMillis()));
+	}
+	
+	private Repo getNewRepo() {
+		Random random = new Random();
+		long repoId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String repoUrl = new String(array, Charset.forName("UTF-8"));
+		
+		return new Repo(repoId, "repo_" + repoId, "https://repo_" + repoUrl);
+	}
+	
+	private Actor getNewActor() {
+		Random random = new Random();
+		long actorId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String avatarUrl = new String(array, Charset.forName("UTF-8"));
+	    
+	    return new Actor(actorId, "actor_" + actorId, "https://avatar_" + avatarUrl);
+	}
+}
+--------------------------------------
+
+package com.hackerrank.github.utils;
+
+public class DBConstants {
+	public static String SCHEMA = "github_events_db";
+	
+	public interface DBTable {
+		public String TABLE_ACTOR = "ACTORS";
+		public String TABLE_REPO = "REPOS";
+		public String TABLE_EVENT = "EVENTS";
+	}
+}
+------------------------------------------
+package com.hackerrank.github.utils;
+
+public enum EventResponse {
+	EVENT_ALREADY_EXISTS,
+	EVENT_CREATED,
+	ACTOR_DOES_NOT_EXIST,
+	ACTOR_AVATAR_UPDATE_FAILED,
+	ACTOR_AVATAR_UPDATED,
+	EVENT_RESULT_FOUND;
+}
+------------------------------------
+package com.hackerrank.github.utils;
+
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.hackerrank.github.entity.EventResult;
+
+public class EventUtils {
+	private static final Logger LOGGER = LoggerFactory.getLogger(EventUtils.class);
+	
+	public static <T> void setErrorToEventResult(EventResponse response, EventResult<T> eventResult, Throwable t) {
+		eventResult.setResponse(response);
+		
+		if(t != null) {
+			LOGGER.error(String.join("/n", Stream.of(t.getStackTrace())
+					.map(trace -> trace.toString())
+					.collect(Collectors.toList())));
+			
+			throw new Error(t.toString());
+		}
+	}
+
+}
