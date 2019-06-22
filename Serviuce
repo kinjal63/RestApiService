@@ -1,0 +1,112 @@
+package com.hackerrank.github.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.hackerrank.github.entity.EventResult;
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.model.Repo;
+import com.hackerrank.github.repository.ActorRepository;
+import com.hackerrank.github.repository.EventRepository;
+import com.hackerrank.github.repository.RepoRepository;
+import com.hackerrank.github.utils.EventResponse;
+import com.hackerrank.github.utils.EventUtils;
+
+@Service
+public class GithubApiService implements IGitHubService {
+	@Autowired
+	private EventRepository eventRepository;
+	@Autowired
+	private ActorRepository actorRepository;
+	@Autowired
+	private RepoRepository repoRepository;
+
+	@Override
+	public EventResponse addEvent(Event event) {
+		Optional<Event> eventObject = eventRepository.findById(event.getId());
+		if (eventObject.isPresent())
+			return EventResponse.EVENT_ALREADY_EXISTS;
+
+		eventRepository.save(event);
+		return EventResponse.EVENT_CREATED;
+	}
+
+	@Override
+	public void deleteEvent() {
+		this.eventRepository.deleteAll();
+	}
+
+	public EventResult<List<Event>> getEventsByActor(Long actorId) {
+		EventResult<List<Event>> eventResult = new EventResult<>();
+
+		if (this.eventRepository.existsById(actorId)) {
+			EventUtils.setErrorToEventResult(EventResponse.ACTOR_DOES_NOT_EXIST, eventResult, null);
+			return eventResult;
+		}
+		
+		Optional<List<Event>> events = this.eventRepository.findByActorId(actorId);
+		if (events.isPresent()) {
+			eventResult.setResponse(EventResponse.EVENT_RESULT_FOUND);
+			eventResult.setData(events.get());
+		}
+		
+		return eventResult;
+	}
+
+	@Override
+	public EventResult<EventResponse> updateAvatarUrl(Actor actor) {
+		EventResult<EventResponse> eventResult = new EventResult<>();
+		
+		Optional<Actor> ac = actorRepository.findById(actor.getId());
+		if(!ac.isPresent()) {	
+			EventUtils.setErrorToEventResult(EventResponse.ACTOR_DOES_NOT_EXIST, eventResult, null);
+			return eventResult;
+		}
+		
+		Actor persistedActor = ac.get();
+		
+		if(!persistedActor.getLogin().equalsIgnoreCase(actor.getLogin())) {
+			EventUtils.setErrorToEventResult(EventResponse.ACTOR_AVATAR_UPDATE_FAILED, eventResult, null);
+			return eventResult;
+		}
+		
+		persistedActor.setAvatar(actor.getAvatar());
+		actorRepository.save(persistedActor);
+		
+		eventResult.setResponse(EventResponse.ACTOR_AVATAR_UPDATED);
+		return eventResult;
+	}
+	
+	private <T> boolean doesExistById(T t) {
+		if(t instanceof Event) {
+			return eventRepository.existsById(((Event) t).getId());
+		}
+		else if(t instanceof Actor) {
+			return actorRepository.existsById(((Actor) t).getId());
+		}
+		else if(t instanceof Repo) {
+			return actorRepository.existsById(((Repo) t).getId());
+		}
+		
+		return false;
+	}
+}
+
+------------------------------------------------
+
+package com.hackerrank.github.service;
+
+import com.hackerrank.github.entity.EventResult;
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.utils.EventResponse;
+
+public interface IGitHubService {
+	public EventResponse addEvent(Event event);
+	public void deleteEvent();
+	public EventResult<EventResponse> updateAvatarUrl(Actor actor);
+}
