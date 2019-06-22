@@ -1,0 +1,243 @@
+package com.hackerrank.github;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import java.nio.charset.Charset;
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.stream.Collectors;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.model.Repo;
+import com.hackerrank.github.repository.ActorRepository;
+import com.hackerrank.github.repository.EventRepository;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@DataJpaTest
+public class EventRepositoryIntegrationTest {
+	@Autowired
+	TestEntityManager entityManager;
+	
+	@Autowired
+	EventRepository eventRepository;
+	
+	@Autowired
+	ActorRepository actorRepository;
+	
+	@Before
+	public void setUp() {
+		
+	}
+	
+	@Test
+	public void whenCountEvents_returnEvent() {
+		Event event1 = getNewEvent(getNewActor(), getNewRepo());
+		Event event2 = getNewEvent(getNewActor(), getNewRepo());
+		Event event3 = getNewEvent(getNewActor(), getNewRepo());
+		
+		eventRepository.save(event1);
+		eventRepository.save(event2);
+		eventRepository.save(event3);
+		
+		assertEquals(3, eventRepository.count());
+		eventRepository.findById(event1.getId());
+	}
+	
+	
+	@Test
+	public void whenFindByActor_returnEvents() throws InterruptedException {
+		Actor actor1 = getNewActor();
+		Actor actor2 = getNewActor();
+		Actor actor4 = getNewActor();
+		
+		eventRepository.save(getNewEvent(actor1, getNewRepo()));
+		eventRepository.save(getNewEvent(actor2, getNewRepo()));
+		Thread.sleep(2000);
+		
+		eventRepository.save(getNewEvent(actor1, getNewRepo()));
+		eventRepository.save(getNewEvent(actor1, getNewRepo()));
+		Thread.sleep(1000);
+		
+		eventRepository.save(getNewEvent(actor4, getNewRepo()));
+		
+		Optional<List<Event>> events = eventRepository.findByOrderByIdAsc();
+		
+		assertEquals(true, events.isPresent());
+		assertEquals(5, events.get().size());
+
+		List<Long> eventIds = events.get().stream()
+				.map(event -> event.getId())
+				.collect(Collectors.toList());
+		
+		Long prevId = Long.MAX_VALUE;
+		for(Long id: eventIds) {
+			assertTrue(id.compareTo(prevId) < 0);
+			prevId = id;
+		}
+	}
+	
+	@Test
+	public void whenFindByActorNotExists_returnNull() {
+		Actor actor3 = getNewActor();
+		
+		Optional<List<Event>> events = eventRepository.findByActorId(actor3.getId());
+		assertFalse(events.isPresent());
+	}
+	
+	private Event getNewEvent(Actor actor, Repo repo) {
+		Random random = new Random();
+		long eventId = random.nextLong();
+		
+		return new Event(eventId, "event_type_" + eventId, actor, repo, new Timestamp(System.currentTimeMillis()));
+	}
+	
+	private Repo getNewRepo() {
+		Random random = new Random();
+		long repoId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String repoUrl = new String(array, Charset.forName("UTF-8"));
+		
+		return new Repo(repoId, "repo_" + repoId, "https://repo_" + repoUrl);
+	}
+	
+	private Actor getNewActor() {
+		Random random = new Random();
+		long actorId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String avatarUrl = new String(array, Charset.forName("UTF-8"));
+	    
+	    return new Actor(actorId, "actor_" + actorId, "https://avatar_" + avatarUrl);
+	}
+	
+}
+------------------------------------------
+package com.hackerrank.github;
+
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import com.hackerrank.github.controller.GithubApiRestController;
+import com.hackerrank.github.entity.EventResult;
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.service.GithubApiService;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@WebMvcTest(controllers=GithubApiRestController.class)
+public class GitHubApiControllerTest {
+	@Autowired
+	MockMvc mockMvc;
+	
+	@MockBean
+	GithubApiService apiService;
+	
+	@Test
+	public void givenEvents_whenGetEvents_returnJsonArray() throws Exception {
+		Actor ac1 = TestUtils.getNewActor();
+		Actor ac2 = TestUtils.getNewActor();
+		
+		List<Event> eventList = new ArrayList<>();
+		eventList.add(TestUtils.getNewEvent(ac1, TestUtils.getNewRepo()));
+		eventList.add(TestUtils.getNewEvent(ac2, TestUtils.getNewRepo()));
+		eventList.add(TestUtils.getNewEvent(ac2, TestUtils.getNewRepo()));
+		
+		when(apiService.getEventsByActor(ac2.getId())).thenReturn(new EventResult(200, eventList));
+		
+		MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders.get("/actor")
+				.accept(org.springframework.http.MediaType.APPLICATION_JSON))
+				.andDo(MockMvcResultHandlers.print())
+				.andExpect(MockMvcResultMatchers.status().isOk())
+				.andReturn();
+		
+		MockHttpServletResponse response = mvcResult.getResponse();
+		System.out.println("response--->" + response.getContentAsString());
+//		assertEquals(true, mvcResult.get() instanceof EventResult);
+	}
+}
+  --------------------------------------------
+  
+  package com.hackerrank.github;
+
+import java.nio.charset.Charset;
+import java.sql.Timestamp;
+import java.util.Random;
+import com.hackerrank.github.model.Actor;
+import com.hackerrank.github.model.Event;
+import com.hackerrank.github.model.Repo;
+
+public class TestUtils {
+	
+	public static Event getNewEvent(Actor actor, Repo repo) {
+		Random random = new Random();
+		long eventId = random.nextLong();
+		
+		return new Event(eventId, "event_type_" + eventId, actor, repo, new Timestamp(System.currentTimeMillis()));
+	}
+	
+	public static Repo getNewRepo() {
+		Random random = new Random();
+		long repoId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String repoUrl = new String(array, Charset.forName("UTF-8"));
+		
+		return new Repo(repoId, "repo_" + repoId, "https://repo_" + repoUrl);
+	}
+	
+	public static Actor getNewActor() {
+		Random random = new Random();
+		long actorId = random.nextLong();
+		
+		byte[] array = new byte[7]; // length is bounded by 7
+	    random.nextBytes(array);
+	    String avatarUrl = new String(array, Charset.forName("UTF-8"));
+	    
+	    return new Actor(actorId, "actor_" + actorId, "https://avatar_" + avatarUrl);
+	}
+
+}
+---------------------
+server.address=0.0.0.0
+server.port=8001
+
+spring.h2.console.enabled=true
+spring.jpa.hibernate.ddl-auto=update
+spring.datasource.url=jdbc:h2:file:~/github_events_db;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.username=sa
+spring.datasource.password=
+
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+hibernate.dialect=org.hibernate.dialect.H2Dialect
